@@ -1,0 +1,26 @@
+/* Add this to your <style> block */
+
+/* Base styles required for line clamping to work */
+.line-clamp-1, .line-clamp-2, .line-clamp-3 {
+    display: -webkit-box;           /* Required for legacy & current support */
+    -webkit-box-orient: vertical;   /* Required for legacy & current support */
+    overflow: hidden;               /* Hides the text that gets cut off */
+}
+
+/* 1 Line Truncation (e.g., Tags, Small Titles) */
+.line-clamp-1 {
+    -webkit-line-clamp: 1;  /* Chrome, Safari, Edge, Firefox */
+    line-clamp: 1;          /* Standard Property (Future-proof) */
+}
+
+/* 2 Lines Truncation (e.g., Article Titles) */
+.line-clamp-2 {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+}
+
+/* 3 Lines Truncation (e.g., Excerpts/Descriptions) */
+.line-clamp-3 {
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+}
