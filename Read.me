@@ -1,0 +1,73 @@
+# SkyGoal - BeritaBola (Read.me)
+
+Project kecil: situs berita sepak bola "SkyGoal".  
+Struktur sederhana dengan bagian publik dan panel admin. Ditujukan untuk dijalankan di lingkungan PHP (mis. XAMPP).
+
+## Ringkasan
+- Bahasa: PHP, JS, CSS  
+- DB: MySQL (PDO)  
+- Folder upload: uploads/  
+- Admin panel: admin/
+
+## Menjalankan secara lokal
+1. Salin folder ke htdocs (mis. `c:\xampp\htdocs\beritabola`).  
+2. Buat database MySQL `skygoal_db` dan impor skema (jika ada).  
+3. Sesuaikan koneksi di [db.php](db.php).  
+4. Akses: http://localhost/beritabola/
+
+## Endpoints & Fitur Utama
+- Halaman publik: [index.php](index.php), [article.php](article.php), [category.php](category.php)  
+- AJAX load more: [get_more_news.php](get_more_news.php) digunakan oleh [js/script.js](js/script.js)  
+- Panel admin: [admin/login.php](admin/login.php), [admin/dashboard.php](admin/dashboard.php), [admin/process.php](admin/process.php)  
+- Reset password: [admin/forgot_password.php](admin/forgot_password.php)  
+- Logout: [admin/logout.php](admin/logout.php)
+
+## Fungsi penting (lokasi)
+- [`startSecureSession`](db.php) — mulai session aman ([db.php](db.php))  
+- [`getImageUrl`](db.php) — resolver path/URL gambar ([db.php](db.php))  
+- [`insertAdInContent`](article.php) — menyisipkan iklan native ke tengah konten ([article.php](article.php))  
+- `uploadImage` (helper) — upload/ganti gambar upload di admin ([admin/process.php](admin/process.php))
+
+## File & Folder (buka file untuk detail)
+- [article.php](article.php)  
+- [category.php](category.php)  
+- [db.php](db.php)  
+- [get_more_news.php](get_more_news.php)  
+- [index.php](index.php)  
+- [red.me](red.me)  
+- admin/
+  - [admin/dashboard.php](admin/dashboard.php)
+  - [admin/forgot_password.php](admin/forgot_password.php)
+  - [admin/login.php](admin/login.php)
+  - [admin/logout.php](admin/logout.php)
+  - [admin/process.php](admin/process.php)
+- css/
+  - [css/style.css](css/style.css)
+- database/ (kosong/untuk skrip DB)
+- js/
+  - [js/script.js](js/script.js)
+- template/
+  - [template/footer.php](template/footer.php)
+  - [template/navbar.php](template/navbar.php)
+- uploads/ (folder penyimpanan gambar)
+
+## Catatan keamanan & pengembangan
+- Perhatikan validasi upload pada [admin/process.php](admin/process.php).  
+- Script iklan bisa berisi HTML/JS; gunakan `html_entity_decode` pada penyimpanan/penampilan script (sudah diterapkan di [index.php](index.php)).  
+- Password hashed menggunakan `password_hash` (lihat [admin/login.php](admin/login.php) & [admin/forgot_password.php](admin/forgot_password.php)).  
+- Sesuaikan permission folder `uploads/` agar web server dapat menulis.
+
+## Kontak / Referensi
+Lihat catatan proyek: [red.me](red.me)
+
+## Metode pengembangan
+Website ini dibuat dengan metode "vibe coding": pembuatan website dibantu oleh AI untuk mempercepat pengembangan dan menghasilkan ide.
+
+## Penafian / Disclaimer
+Mohon maaf jika terdapat kemiripan nama website, kesalahan, atau kekurangan lain. Website ini belum sempurna — silakan dikembangkan lebih lanjut.
+
+## Author
+Waqiat Tur Rachmat
+
+## Lisensi
+MIT License — lihat file LICENSE untuk detail.
