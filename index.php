@@ -1,11 +1,40 @@
 <?php
 require_once 'db.php';
 
-// Logika Data
+// --- TIDAK PERLU DEKLARASI ULANG getImageUrl DI SINI ---
+// Karena sudah ada di db.php
+
+// --- LOGIKA DATA ---
+// 1. Ambil Iklan Aktif
 $ads_raw = $pdo->query("SELECT * FROM ads WHERE is_active = 1")->fetchAll();
-$ads = []; foreach ($ads_raw as $ad) $ads[$ad['type']] = $ad;
-$hero = $pdo->query("SELECT a.*, c.name as cat FROM articles a JOIN categories c ON a.category_id=c.id WHERE a.status='published' ORDER BY a.created_at DESC LIMIT 1")->fetch();
-$feed = $pdo->query("SELECT a.*, c.name as cat FROM articles a JOIN categories c ON a.category_id=c.id WHERE a.status='published' ORDER BY a.created_at DESC LIMIT 6 OFFSET 1")->fetchAll();
+$ads = []; 
+foreach ($ads_raw as $ad) {
+    // Decode HTML entities untuk script agar tag <script> berfungsi
+    if(($ad['ad_mode'] ?? 'image') === 'script') {
+        $ad['script_code'] = html_entity_decode($ad['script_code']);
+    }
+    $ads[$ad['type']] = $ad;
+}
+
+// 2. Ambil Hero Article (1 Teratas)
+$hero = $pdo->query("
+    SELECT a.*, c.name as cat 
+    FROM articles a 
+    JOIN categories c ON a.category_id=c.id 
+    WHERE a.status='published' 
+    ORDER BY a.created_at DESC LIMIT 1
+")->fetch();
+
+// 3. Ambil Feed Article (6 Berikutnya)
+$feed = $pdo->query("
+    SELECT a.*, c.name as cat 
+    FROM articles a 
+    JOIN categories c ON a.category_id=c.id 
+    WHERE a.status='published' 
+    ORDER BY a.created_at DESC LIMIT 6 OFFSET 1
+")->fetchAll();
+
+// 4. Populer & Kategori
 $popular = $pdo->query("SELECT * FROM articles WHERE status='published' ORDER BY views DESC LIMIT 5")->fetchAll();
 $cats = $pdo->query("SELECT * FROM categories LIMIT 5")->fetchAll();
 ?>
@@ -50,6 +79,8 @@ $cats = $pdo->query("SELECT * FROM categories LIMIT 5")->fetchAll();
     <style>
         body { background-color: #F2F4F6; }
         .line-clamp-2{-webkit-line-clamp:2;line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
+        /* Style khusus untuk container iklan script agar center */
+        .ad-script-container { display: flex; justify-content: center; align-items: center; width: 100%; overflow: hidden; margin: 10px 0; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-thumb { background: #A50044; border-radius: 10px; }
         ::-webkit-scrollbar-track { background: #004D98; }
@@ -63,9 +94,16 @@ $cats = $pdo->query("SELECT * FROM categories LIMIT 5")->fetchAll();
             <button onclick="closePopup()" class="absolute top-3 right-3 z-20 bg-barca-red text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-barca-blue transition shadow-lg cursor-pointer transform hover:rotate-90">
                 <i class="fas fa-times"></i>
             </button>
-            <a href="<?php echo $ads['popup']['target_url']; ?>" target="_blank" class="block relative group">
-                <img src="<?php echo getImageUrl($ads['popup']['image_url']); ?>" class="w-full object-cover">
-            </a>
+            
+            <?php if(($ads['popup']['ad_mode'] ?? 'image') === 'script'): ?>
+                <div class="p-4 bg-white flex justify-center min-h-[300px] items-center">
+                    <?php echo $ads['popup']['script_code']; ?>
+                </div>
+            <?php else: ?>
+                <a href="<?php echo $ads['popup']['target_url']; ?>" target="_blank" class="block relative group">
+                    <img src="<?php echo getImageUrl($ads['popup']['image_url']); ?>" class="w-full object-cover">
+                </a>
+            <?php endif; ?>
         </div>
     </div>
     <script>
@@ -79,40 +117,38 @@ $cats = $pdo->query("SELECT * FROM categories LIMIT 5")->fetchAll();
 
     <?php if(isset($ads['banner_top'])): ?>
     <div id="top-banner" class="bg-barca-dark text-white text-center py-2 text-xs relative z-50 border-b border-white/10 hidden transition-all duration-300">
-        <div class="container mx-auto px-4 relative">
-            <span class="opacity-75 font-light">SPONSORED:</span> 
-            <a href="<?php echo $ads['banner_top']['target_url']; ?>" target="_blank" class="font-bold text-barca-gold ml-2 hover:underline">
-                <?php echo $ads['banner_top']['title']; ?>
-            </a>
+        <div class="container mx-auto px-4 relative flex justify-center items-center">
             
+            <?php if(($ads['banner_top']['ad_mode'] ?? 'image') === 'script'): ?>
+                <div class="ad-script-container max-h-[90px]">
+                    <?php echo $ads['banner_top']['script_code']; ?>
+                </div>
+            <?php else: ?>
+                <span class="opacity-75 font-light">SPONSORED:</span> 
+                <a href="<?php echo $ads['banner_top']['target_url']; ?>" target="_blank" class="font-bold text-barca-gold ml-2 hover:underline">
+                    <?php echo $ads['banner_top']['title']; ?>
+                </a>
+            <?php endif; ?>
+
             <button onclick="closeTopAd()" class="absolute right-0 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition p-2">
                 <i class="fas fa-times"></i>
             </button>
         </div>
     </div>
-
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             const banner = document.getElementById('top-banner');
-            const storageKey = 'skygoal_top_ad_closed'; // Kunci penyimpanan
-            const duration = 3 * 60 * 1000; // 3 Menit dalam milidetik (3 * 60 detik * 1000 ms)
-
-            // 1. Cek apakah ada data waktu tutup di LocalStorage
+            const storageKey = 'skygoal_top_ad_closed';
+            const duration = 3 * 60 * 1000; 
             const closedTime = localStorage.getItem(storageKey);
             const now = new Date().getTime();
-
-            // 2. Logika Tampil: Jika BELUM PERNAH ditutup ATAU Waktu Tutup > 3 Menit yang lalu
             if (!closedTime || (now - closedTime > duration)) {
                 if(banner) banner.classList.remove('hidden');
             }
         });
-
         function closeTopAd() {
             const banner = document.getElementById('top-banner');
-            // 1. Sembunyikan Iklan
             banner.classList.add('hidden');
-            
-            // 2. Simpan Waktu Sekarang ke LocalStorage
             localStorage.setItem('skygoal_top_ad_closed', new Date().getTime());
         }
     </script>
@@ -120,13 +156,20 @@ $cats = $pdo->query("SELECT * FROM categories LIMIT 5")->fetchAll();
 
     <?php include 'template/navbar.php'; ?>
 
-
     <div class="container mx-auto px-4 py-10">
         
         <?php if(isset($ads['horizontal_banner'])): ?>
-        <a href="<?php echo $ads['horizontal_banner']['target_url']; ?>" target="_blank" class="block w-full max-w-5xl mx-auto mb-10 rounded-2xl overflow-hidden shadow-lg border-2 border-white hover:shadow-2xl transition transform hover:-translate-y-1 animate-fade-up">
-            <img src="<?php echo getImageUrl($ads['horizontal_banner']['image_url']); ?>" class="w-full object-cover max-h-32 md:max-h-44">
-        </a>
+            <div class="block w-full max-w-5xl mx-auto mb-10 animate-fade-up">
+                <?php if(($ads['horizontal_banner']['ad_mode'] ?? 'image') === 'script'): ?>
+                    <div class="ad-script-container bg-gray-100 rounded-xl border border-gray-200 p-2">
+                        <?php echo $ads['horizontal_banner']['script_code']; ?>
+                    </div>
+                <?php else: ?>
+                    <a href="<?php echo $ads['horizontal_banner']['target_url']; ?>" target="_blank" class="block rounded-2xl overflow-hidden shadow-lg border-2 border-white hover:shadow-2xl transition transform hover:-translate-y-1">
+                        <img src="<?php echo getImageUrl($ads['horizontal_banner']['image_url']); ?>" class="w-full object-cover max-h-32 md:max-h-44">
+                    </a>
+                <?php endif; ?>
+            </div>
         <?php endif; ?>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -146,7 +189,7 @@ $cats = $pdo->query("SELECT * FROM categories LIMIT 5")->fetchAll();
                         </h1>
                         <div class="flex items-center text-white/80 text-sm font-bold gap-6">
                             <span class="flex items-center gap-2"><i class="far fa-clock text-barca-gold"></i> <?php echo date('d M Y', strtotime($hero['created_at'])); ?></span>
-                            <span class="flex items-center gap-2"><i class="fas fa-eye text-barca-gold"></i> <?php echo $hero['views']; ?>x Dibaca</span>
+                            <span class="flex items-center gap-2"><i class="fas fa-eye text-barca-gold"></i> <?php echo $hero['views'] ?? 0; ?>x Dibaca</span>
                         </div>
                     </div>
                 </a>
@@ -182,19 +225,28 @@ $cats = $pdo->query("SELECT * FROM categories LIMIT 5")->fetchAll();
 
                         <?php if($count == 2 && isset($ads['native_feed'])): ?>
                         <div class="md:col-span-2 my-2">
-                            <a href="<?php echo $ads['native_feed']['target_url']; ?>" target="_blank" class="relative block bg-gradient-to-r from-barca-blue to-barca-dark rounded-2xl p-1 shadow-lg hover:scale-[1.01] transition-transform">
-                                <div class="bg-white rounded-xl p-4 flex flex-col md:flex-row items-center gap-6 h-full relative overflow-hidden">
-                                    <div class="absolute top-0 right-0 bg-barca-gold text-barca-blue text-[10px] font-black px-3 py-1 rounded-bl-xl z-10 shadow-sm">PARTNER</div>
-                                    <div class="w-full md:w-1/3 h-32 rounded-lg overflow-hidden shadow-inner">
-                                        <img src="<?php echo getImageUrl($ads['native_feed']['image_url']); ?>" class="w-full h-full object-cover">
-                                    </div>
-                                    <div class="flex-1 text-center md:text-left">
-                                        <h4 class="text-xl font-extrabold text-barca-blue mb-1"><?php echo $ads['native_feed']['title']; ?></h4>
-                                        <p class="text-gray-500 text-sm mb-3 line-clamp-2">Penawaran eksklusif spesial untuk fans sepak bola.</p>
-                                        <span class="inline-block bg-barca-red text-white px-6 py-2 rounded-lg font-bold text-xs hover:bg-barca-blue transition shadow-md">Lihat Sekarang</span>
+                            <?php if(($ads['native_feed']['ad_mode'] ?? 'image') === 'script'): ?>
+                                <div class="w-full bg-gray-50 border border-gray-200 rounded-2xl p-4 text-center">
+                                    <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest block mb-2">SPONSORED</span>
+                                    <div class="ad-script-container">
+                                        <?php echo $ads['native_feed']['script_code']; ?>
                                     </div>
                                 </div>
-                            </a>
+                            <?php else: ?>
+                                <a href="<?php echo $ads['native_feed']['target_url']; ?>" target="_blank" class="relative block bg-gradient-to-r from-barca-blue to-barca-dark rounded-2xl p-1 shadow-lg hover:scale-[1.01] transition-transform">
+                                    <div class="bg-white rounded-xl p-4 flex flex-col md:flex-row items-center gap-6 h-full relative overflow-hidden">
+                                        <div class="absolute top-0 right-0 bg-barca-gold text-barca-blue text-[10px] font-black px-3 py-1 rounded-bl-xl z-10 shadow-sm">PARTNER</div>
+                                        <div class="w-full md:w-1/3 h-32 rounded-lg overflow-hidden shadow-inner">
+                                            <img src="<?php echo getImageUrl($ads['native_feed']['image_url']); ?>" class="w-full h-full object-cover">
+                                        </div>
+                                        <div class="flex-1 text-center md:text-left">
+                                            <h4 class="text-xl font-extrabold text-barca-blue mb-1"><?php echo $ads['native_feed']['title']; ?></h4>
+                                            <p class="text-gray-500 text-sm mb-3 line-clamp-2">Penawaran eksklusif spesial untuk fans sepak bola.</p>
+                                            <span class="inline-block bg-barca-red text-white px-6 py-2 rounded-lg font-bold text-xs hover:bg-barca-blue transition shadow-md">Lihat Sekarang</span>
+                                        </div>
+                                    </div>
+                                </a>
+                            <?php endif; ?>
                         </div>
                         <?php endif; ?>
 
@@ -232,9 +284,16 @@ $cats = $pdo->query("SELECT * FROM categories LIMIT 5")->fetchAll();
                 <?php if(isset($ads['sidebar_square'])): ?>
                 <div class="bg-white p-3 rounded-2xl shadow-lg border border-gray-100 relative group hover:scale-105 transition duration-500">
                     <span class="block text-[10px] text-gray-400 font-bold text-center mb-2">ADVERTISEMENT</span>
-                    <a href="<?php echo $ads['sidebar_square']['target_url']; ?>" target="_blank">
-                        <img src="<?php echo getImageUrl($ads['sidebar_square']['image_url']); ?>" class="rounded-xl w-full hover:opacity-90 transition shadow-inner">
-                    </a>
+                    
+                    <?php if(($ads['sidebar_square']['ad_mode'] ?? 'image') === 'script'): ?>
+                        <div class="ad-script-container">
+                            <?php echo $ads['sidebar_square']['script_code']; ?>
+                        </div>
+                    <?php else: ?>
+                        <a href="<?php echo $ads['sidebar_square']['target_url']; ?>" target="_blank">
+                            <img src="<?php echo getImageUrl($ads['sidebar_square']['image_url']); ?>" class="rounded-xl w-full hover:opacity-90 transition shadow-inner">
+                        </a>
+                    <?php endif; ?>
                 </div>
                 <?php endif; ?>
             </aside>
